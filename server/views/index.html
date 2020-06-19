@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <h1>文件上传</h1>
+  <input type="file" onchange="onFileChange(event)" id="file" />
+  <button id="upload-btn">上传</button>
+
+  <!-- <form action="/file/upload" method="POST">
+    <input type="text" value="原始表单提交" name="text">
+    <button>提交</button>
+  </form> -->
+
+  <script>
+    const CHUNK_SIZE = 10 * 1024 * 1024;
+    let chunkList = [];
+    let file;
+    let startTime;
+    const input = document.getElementById('file');
+    const btn = document.getElementById('upload-btn');
+    btn.addEventListener('click', onFormSubmit);
+
+    function createFileChunk(file) {
+      let start = 0;
+      let index = 1;
+      while (start < file.size) {
+        const chunk = file.slice(start, start + CHUNK_SIZE);
+        // `${file.name}-${index++}` 
+        chunkList.push({ chunk, hash: index++ });
+        start += CHUNK_SIZE;
+      }
+    }
+
+    function onFileChange(e) {
+      [file] = e.target.files;
+      createFileChunk(file);
+    }
+
+    function request(url, data, method = 'GET', headers = {}) {
+      const xhr = new XMLHttpRequest();
+
+      return new Promise((resolve, reject) => {
+        xhr.onreadystatechange = () => {
+          // console.log('state', xhr.readyState, xhr.status);
+          if (xhr.readyState === xhr.DONE && xhr.status === 200) {
+            resolve('上传成功');
+            // alert('上传成功');
+          }
+  
+          if (xhr.readyState === xhr.DONE && xhr.status === 201) {
+            // alert('文件已存在');
+            resolve('文件已存在');
+          }
+  
+          if (xhr.readyState === xhr.DONE && xhr.status === 0) {
+            // alert('上传失败');
+            reject('上传失败');
+          }
+        }
+        xhr.open(method, url, true);
+        Object.keys(headers).forEach(key => 
+          xhr.setRequestHeader(key, headers[key])
+        );
+        // default content-type multipart/form-data
+        xhr.send(data);
+      });
+    }
+
+    async function mergeRequest() {
+      const data = {
+        filename: file.name,
+      };
+      const header = {
+        'Content-Type': 'application/json',
+      }
+      return request('/file/merge', JSON.stringify(data), 'POST', header);
+    }
+
+    async function onFormSubmit() {
+      // send request 2 server
+      if (chunkList.length == 0) {
+        return;
+      }
+      startTime = new Date();
+
+      const requestList = chunkList.map(({ chunk, hash }) => {
+        const formData = new FormData();
+        formData.append('chunk', chunk);
+        formData.append('hash', hash);
+        formData.append('filename', file.name);
+        console.log('hash', hash);
+        const url = '/file/upload';
+        const method = 'POST';
+        return request(url, formData, method);
+      });
+
+      await Promise.all(requestList);
+      // 合并文件
+      await mergeRequest();
+      // reset input
+      input.value = '';
+      file = null;
+      chunkList = [];
+      console.log('time', Date.now() - startTime);
+
+    }
+
+  </script>
+</body>
+</html>
