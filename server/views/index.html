@@ -9,6 +9,10 @@
   <h1>文件上传</h1>
   <input type="file" onchange="onFileChange(event)" id="file" />
   <button id="upload-btn">上传</button>
+  <div>
+    <progress id="progress" value="0"></progress>
+    <span id="progress-text"></span>
+  </div>
 
   <!-- <form action="/file/upload" method="POST">
     <input type="text" value="原始表单提交" name="text">
@@ -16,12 +20,17 @@
   </form> -->
 
   <script>
-    const CHUNK_SIZE = 10 * 1024 * 1024;
+    const CHUNK_SIZE = 500 * 1024 * 1024;
     let chunkList = [];
     let file;
     let startTime;
+    let uploaded = 0;
+
     const input = document.getElementById('file');
+    const bar = document.getElementById('progress');
+    const txt = document.getElementById('progress-text');
     const btn = document.getElementById('upload-btn');
+
     btn.addEventListener('click', onFormSubmit);
 
     function createFileChunk(file) {
@@ -38,6 +47,15 @@
     function onFileChange(e) {
       [file] = e.target.files;
       createFileChunk(file);
+    }
+
+    function updateProgress(event) {
+      if (event.lengthComputable) {
+        uploaded += event.loaded;
+        bar.max = file.size;
+        bar.value = uploaded;
+        txt.innerText = Math.floor(bar.value * 100 / bar.max) + '%';
+      }
     }
 
     function request(url, data, method = 'GET', headers = {}) {
@@ -65,6 +83,7 @@
         Object.keys(headers).forEach(key => 
           xhr.setRequestHeader(key, headers[key])
         );
+        xhr.upload.onprogress = updateProgress;
         // default content-type multipart/form-data
         xhr.send(data);
       });
@@ -85,6 +104,7 @@
       if (chunkList.length == 0) {
         return;
       }
+
       startTime = new Date();
 
       const requestList = chunkList.map(({ chunk, hash }) => {
@@ -98,6 +118,7 @@
         return request(url, formData, method);
       });
 
+      
       await Promise.all(requestList);
       // 合并文件
       await mergeRequest();
@@ -105,6 +126,9 @@
       input.value = '';
       file = null;
       chunkList = [];
+      bar.value = 0;
+      bar.max = 0;
+      txt.innerText = '';
       console.log('time', Date.now() - startTime);
 
     }

@@ -5,6 +5,7 @@ const fs = require('fs');
 const multiparty = require('multiparty');
 const fse = require('fs-extra');
 const { resolve } = require('path');
+const { chdir } = require('process');
 
 const app = express();
 const server = http.createServer();
@@ -47,7 +48,6 @@ server.on('request', async (req, res) => {
     const name = filename.split('.')[0];
     const targeDir = path.join(UPLOAD_DIR, name);
 
-    
     if (!fse.existsSync(targeDir)) {
       res.end('400');
       return;
@@ -55,6 +55,13 @@ server.on('request', async (req, res) => {
     try {
       const chunks = fse.readdirSync(targeDir);
       console.log('chunks', chunks);
+      // if (chunks.length < 2) {
+      //   const src = path.join(filename, '-1');
+      //   saveFile();
+      //   res.end('200');
+      //   return;
+      // }
+
       const targeFile = path.join(UPLOAD_DIR, filename);
       fse.writeFileSync(targeFile, '');
       mergeFile(targeFile, targeDir, chunks);
